@@ -1,4 +1,4 @@
 ---
-title: Welcome to my blog
+title: Modelos de Pronosticos
 ---
-
+Modelos de series temporales resultantes
