@@ -1,0 +1,254 @@
+---
+title: "BOX_COX TOTALES"
+author: "MIGUEL ANGEL VILEGAS"
+date: "2025-05-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libreria, echo=FALSE, message=FALSE, warning=FALSE}
+library(TSstudio)
+library(tsibble)
+library(class)
+library(readxl)
+library(tsfknn)
+library(ggplot2)
+library(tsDyn)
+library(dplyr)
+library(ggplot2)
+library(xlsx)
+library(lubridate)
+library(feasts)
+library(TSstudio)
+library(tsibble)
+library(class)
+library(readxl)
+library(tsfknn)
+library(ggplot2)
+library(tsDyn)
+library(dplyr)
+library(xlsx)
+library(lubridate)
+library(forecast)
+library(urca)
+library(xts)
+library(magrittr)
+library(tidyverse)
+library(scales)
+library(gridExtra)
+library(tseries)
+library(ggthemes)
+library(lares)
+library(smooth)
+library(forecast)
+library(dplyr)
+library(EnvStats)
+```
+
+```{r ruta}
+ruta <- "C:\\Users\\Usuario\\Downloads\\ARCHIVOS DE POSIT\\Ventas_Suministros_Totales.xlsx"
+
+excel_sheets(ruta)
+
+
+
+Productos_Totales <- as.data.frame(read_xlsx(ruta, 
+                                             sheet = "Ventas Totales Original"))
+Servicios_Totales <- as.data.frame(read_xlsx(ruta, 
+                                             sheet = "Servicios Totales Original"))
+
+
+Productos_Totales$Semana <- format(Productos_Totales$Fecha, format = "%Y-%U")
+
+Productos_Totales$mes <- format(Productos_Totales$Fecha, format = "%Y-%m")
+
+Servicios_Totales$Semana <- format(Servicios_Totales$Fecha, format = "%Y-%U")
+
+Servicios_Totales$mes <- format(Servicios_Totales$Fecha, format = "%Y-%m")
+
+# Ventas de productos y servicios
+datatotal <- merge(x = Productos_Totales, y = Servicios_Totales, all = T)
+colnames(datatotal) <- c("Indice", "Fecha", "RFC", "Empresa", "Cantidad",
+                         "Pieza", "Descripcion", "ValorUnitario", "Total", "Semana", "Mes" )
+dataserietotal <- data.frame(Fecha = datatotal$Fecha, Totales = datatotal$Total)
+head(dataserietotal)
+nrow(dataserietotal) #2266
+```
+
+```{r calculos}
+promedio <- mean(dataserietotal$Totales)
+promedio
+desviacion <- sd(dataserietotal$Totales)
+desviacion
+# Datos sin tratamiento alguno
+hist(dataserietotal$Totales, breaks = 30, probability = T, 
+     col = "steelblue",
+     main = "Gráfica de densidad de productos y servicios totales", 
+     xlab = "Valores")
+densidad <- density(dataserietotal$Totales, na.rm = TRUE)
+lines(densidad, col = "darkred", lwd = 2)
+x <- seq(10, 5e-06, length.out = 1000)
+curve(dnorm(x, mean = promedio, sd = desviacion), 
+      col = "green", lwd = 2, add = TRUE)
+```
+
+```{r ventas}
+ventas_totales <- dataserietotal %>%
+  group_by(Fecha = as.Date(Fecha)) %>%
+  summarise(Totales = sum(Totales)) 
+head(ventas_totales)
+nrow(ventas_totales)
+# Se transforma en data frame
+ventas_totales <- data.frame(Indice = seq(1:nrow(ventas_totales)), 
+                Fecha = ventas_totales$Fecha, Totales = ventas_totales$Totales)
+head(ventas_totales)
+nrow(ventas_totales) #774
+```
+
+```{r plot1}
+plot(ventas_totales$Fecha, ventas_totales$Totales, 
+     main = "Serie de tiempo de ventas totales", col = "steelblue", type = "l", 
+     ylab = "MXN", xlab = "Fecha")
+```
+
+```{r plot2}
+# Descomposicion de la serie datos totales
+plot(decompose(ts(ventas_totales$Totales, start = 1, frequency = 365)))
+```
+
+```{r lambda}
+lambda_total <- boxcox(ventas_totales$Totales, objective.name = "Log-Likelihood")
+boxcox(ventas_totales$Totales, objective.name = "Log-Likelihood", 
+       optimize = T)
+
+```
+
+```{r plot3}
+# Grafica para ubicar a lambda
+plot(lambda_total$lambda, lambda_total$objective, 
+     type = "l", main = "Lambda = 0.01997296", xlab = "Lambda", 
+     ylab = "Log-Likelihood")
+abline(a = seq(-15000,-8000), b = 0, h = -8578.46,v = 0.01997296, 
+       col = c("blue","red"), lwd = 2)
+```
+
+```{r transformacion}
+totales_transformados <- boxcoxTransform(x = ventas_totales$Totales, lambda = 0.01997296)
+head(totales_transformados)
+# [1] 11.985596 10.526310  9.360276 10.129293 10.222425 10.694106
+mean(totales_transformados)
+sd(totales_transformados)
+```
+```{r histograma}
+hist(totales_transformados, breaks = 30, prob = TRUE, col = "steelblue",
+     main = "Histograma de Productos_Totales_transformados")
+densidad <- density(totales_transformados, na.rm = TRUE)
+lines(densidad, col = "red", lwd = 2) 
+curve(dnorm(x, mean = mean(totales_transformados), sd = sd(totales_transformados)), 
+      col = "green", lwd = 2, add = TRUE)
+```
+
+```{r plot4}
+plot(decompose(ts(totales_transformados, start = 1, frequency = 365)))
+```
+```{r diferenciacion}
+ndiffs(totales_transformados)
+dif_totales <- diff(totales_transformados)
+```
+```{r dataframe1}
+totales_transformados <- data.frame(Indice = seq(1:length(dif_totales)), 
+                                    Fecha = ventas_totales$Fecha[-1], 
+                                    Totales = dif_totales)
+head(totales_transformados)
+nrow(totales_transformados)
+```
+
+```{r plot5}
+xts_serie_total <- xts(x = dif_totales, 
+                       order.by = totales_transformados$Fecha)
+plot.xts(x = xts_serie_total, col = "black", 
+         main = "Serie Suma totales por dia de Productos y Servicios", 
+         labels.col = "black")
+```
+
+```{r histgrama2}
+hist(dif_totales,breaks = 30, probability = T, col = "steelblue", 
+     main = "Histograma de productos y servicios con diferenciacion", 
+     xlim = c(-7,7), xlab = "Valores diferenciados")
+DENSI <- density(dif_totales, na.rm = TRUE)
+lines(DENSI, col = "red", lwd = 2) 
+PROM_TOT <- mean(dif_totales, na.rm = TRUE) # Constantes promedio
+SIG_TOT <- sd(dif_totales, na.rm = TRUE) # Constantes desviacion estandar
+
+LIM_INFE <- PROM_TOT - 2.6 * SIG_TOT 
+LIM_SUPE <- PROM_TOT + 2.6 * SIG_TOT
+x <- seq(LIM_INFE, LIM_SUPE, length.out = 1000)
+curve(dnorm(x, mean = PROM_TOT, sd = SIG_TOT), col = "green", lwd = 2, 
+      xlim = c(LIM_INFE-2, LIM_SUPE+2), add = TRUE) 
+
+```
+
+##  Estableciendo outliers -2.6*sigma,2.6*sigma de intervalo
+Identificando los valoes fuera de intervalo
+
+```{r limite}
+limite_2.6sigma <- totales_transformados$Totales[totales_transformados$Totales < LIM_INFE | totales_transformados$Totales > LIM_SUPE]
+print(limite_2.6sigma)
+# [1] -6.519221 -7.268153 -6.802974 -6.704634  7.669304 -7.157232
+
+# Regla Turkey es bloxplot
+boxplot(x = totales_transformados$Totales, col = "red", horizontal = T)
+
+# Identificacion de los indices de los outliers
+indices_atipicos <- which(totales_transformados$Totales %in% limite_2.6sigma)
+print(indices_atipicos) # Se considera el de 2.6*sigma
+# [1] 138 460 468 481 567 691
+```
+
+## Se realiza la sustitucion con el promedio de los valores vecinos
+Funcion para calcular el promedio de los 5 vecinos mas cercanos
+
+```{r promedio vecinos}
+calcular_promedio_vecinos <- function(indice, datos) {
+  # Obtener los Indices de los 5 valores anteriores y posteriores
+  indices_vecinos <- indice + c(-5:5)
+  indices_vecinos <- indices_vecinos[indices_vecinos > 0 & indices_vecinos <= length(datos)]
+  
+  # Si hay menos de 5 vecinos, expandir el rango hasta tener al menos 5
+  if (length(indices_vecinos) < 5) {
+    indices_vecinos <- indice + c(-(5 - length(indices_vecinos)):5)
+    indices_vecinos <- indices_vecinos[indices_vecinos > 0 & indices_vecinos <= length(datos)]
+  }
+  
+  # Calcular el promedio
+  promedio <- mean(datos[indices_vecinos])
+  return(promedio)
+}
+
+# Aplicar la funcion a cada outlier y reemplazar el valor
+nuevos_valores <- sapply(indices_atipicos, calcular_promedio_vecinos, datos = totales_transformados$Totales)
+totales_transformados$Totales[indices_atipicos] <- nuevos_valores
+head(totales_transformados)
+tail(totales_transformados)
+nrow(totales_transformados)
+
+```
+## Visualizando valores de outliers en boxplot
+```{r boxplot}
+caixa_total <- boxplot(totales_transformados$Totales, col = "red", horizontal = T)
+```
+
+
+
+
+
+
+
+
+
+
+
+
