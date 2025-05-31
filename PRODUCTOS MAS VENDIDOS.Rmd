@@ -1,0 +1,343 @@
+---
+title: "PRODUCTOS MAS VENDIDOS"
+author: "MIGUEL ANGEL VILEGAS"
+date: "2025-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introducción
+El siguiente análisis de los datos de los productos es con el fin de identificar
+que empresas solicitan productos frecuentemente y cuales tipos de productos, además
+de saber cuán tan frecuente es solicitado un producto.
+
+```{r libreria, echo=FALSE,message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+```
+## Datos de los servicios
+
+```{r Servicios}
+ruta <- "C:\\Users\\Usuario\\Downloads\\ARCHIVOS DE POSIT\\Ventas_Suministros_Totales.xlsx"
+excel_sheets(ruta)
+Productos_Totales <- as.data.frame(read_xlsx(ruta, 
+                                             sheet = "Ventas Totales Original"))
+```
+
+
+## Selección de los productos
+
+```{r itens, echo=FALSE}
+itens.de.interes <- data.frame(Fecha = Productos_Totales$Fecha, 
+                               RFC = Productos_Totales$RFC,
+                               Descripcion = Productos_Totales$Descripcion, 
+                               ValorUnitario = Productos_Totales$ValorUnitario,
+                               Cantidad = Productos_Totales$Cantidad,
+                               Totales = Productos_Totales$Total)
+head(itens.de.interes)
+```
+
+## Número de empresas de productos.
+
+```{r empresas}
+RFC_unicos <- itens.de.interes %>%
+  summarise(RFC_unicos = n_distinct(RFC))
+RFC_unicos
+```
+
+## Empresas que mas solicitan productos.
+
+```{r frecuencia, echo=FALSE}
+frecuencia_rfc <- itens.de.interes %>%
+  group_by(RFC) %>%
+  summarise(Frecuencia = n()) %>%
+  arrange(desc(Frecuencia))
+sum(frecuencia_rfc$Frecuencia)
+# [1] 1995
+# Frecuencia relativa
+frecuencia_rfc$Frecuencia_relativa <- 
+  (frecuencia_rfc$Frecuencia) / sum(frecuencia_rfc$Frecuencia)
+frecuencia_rfc
+```
+
+## Histograma de las cinco empresas que más compran productos.
+
+```{r histograma,echo=FALSE}
+TOP_RFC <- frecuencia_rfc$RFC[1:5]
+TOP_FREQ_RFC <- frecuencia_rfc$Frecuencia[1:5]
+barplot(TOP_FREQ_RFC,
+        main = "Histograma de Frequencia de Empresas",
+        xlab = "RFC",
+        ylab = "Frequencia",
+        names.arg = TOP_RFC,
+        col = "lightblue",
+        border = "black", cex.names = 0.45)
+```
+
+## Se determina que tipos de productos solicitan las tres primeras empresas más frecuentes en compras.
+
+```{r VEPS740807T84,echo=FALSE, message=FALSE,warning=FALSE}
+VEPS7408 <- subset(itens.de.interes,
+RFC == "VEPS740807T84")
+frecuencia_VEPS7408 <- VEPS7408 %>%
+  group_by(Descripcion) %>%
+  summarise(Frecuencia = n()) %>%
+  arrange(desc(Frecuencia))
+sum(frecuencia_VEPS7408$Frecuencia)
+# [1] 247
+# Frecuencia relativa
+frecuencia_VEPS7408$Frecuencia_relativa <- (frecuencia_VEPS7408$Frecuencia) / sum(frecuencia_VEPS7408$Frecuencia)
+
+
+f_VES <- frecuencia_VEPS7408 %>%
+rename(Producto = Descripcion) %>%
+mutate(Producto = str_c(word(Producto, 1), word(Producto, 2), word(Producto, 3), sep = " "))
+
+head(f_VES)
+
+```
+
+```{r paleta, echo=F, message=FALSE, warning=FALSE}
+f_VES <- f_VES %>%
+mutate(ymax = cumsum(Frecuencia_relativa),
+ymin = lag(ymax, default = 0),
+medio = (ymin + ymax) / 2)
+fV_colores <- n_distinct(f_VES$Producto,na.rm = T) 
+paleta_color <- rainbow(fV_colores) 
+```
+
+
+```{r ggplot 1, echo=FALSE, message=FALSE, warning=FALSE}
+
+set.seed(123) 
+color_aleatoria <- sample(paleta_color)
+print(ggplot(f_VES, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = Producto)) +
+geom_rect() +
+coord_polar(theta = "y") + 
+xlim(c(2, 4)) + 
+geom_text(aes(x = 3.5, y = medio, label = Producto),
+size = 2, color = "black") +
+scale_fill_manual(values = paleta_color) +
+
+theme_void()) 
+```
+
+
+
+
+```{r DAR080820B49, echo=FALSE}
+DAR0808 <- subset(itens.de.interes,
+RFC == "DAR080820B49")
+frecuencia_DAR0808 <- DAR0808 %>%
+  group_by(Descripcion) %>%
+  summarise(Frecuencia = n()) %>%
+  arrange(desc(Frecuencia))
+sum(frecuencia_DAR0808$Frecuencia)
+# [1] 156
+# Frecuencia relativa
+frecuencia_DAR0808$Frecuencia_relativa <- (frecuencia_DAR0808$Frecuencia) / sum(frecuencia_DAR0808$Frecuencia)
+head(frecuencia_DAR0808)
+```
+
+```{r SCA851219N90, echo=FALSE}
+SCA8512 <- subset(itens.de.interes,
+RFC == "SCA851219N90")
+frecuencia_SCA8512 <- SCA8512 %>%
+  group_by(Descripcion) %>%
+  summarise(Frecuencia = n()) %>%
+  arrange(desc(Frecuencia))
+sum(frecuencia_SCA8512$Frecuencia)
+# [1] 149
+# Frecuencia relativa
+frecuencia_SCA8512$Frecuencia_relativa <- (frecuencia_SCA8512$Frecuencia) / sum(frecuencia_SCA8512$Frecuencia)
+head(frecuencia_SCA8512)
+```
+
+## Cantidad de productos diferentes que ofrecen para la venta.
+
+```{r cantidad, echo=FALSE}
+PRODUCTOS_unicos <- itens.de.interes %>%
+  summarise(PRODUCTOS_unicos = n_distinct(Descripcion))
+PRODUCTOS_unicos 
+# 705
+```
+
+## Frecuencia de productos más vendidos.
+
+```{r histograma2, echo=FALSE}
+frecuencia_productos <- itens.de.interes %>%
+  group_by(Descripcion) %>%
+  summarise(Frecuencia = n()) %>%
+  arrange(desc(Frecuencia))
+ sum(frecuencia_productos$Frecuencia)
+#[1] 1995
+ # Frecuencia relativa
+frecuencia_productos$Frecuencia_relativa <- (frecuencia_productos$Frecuencia) / sum(frecuencia_productos$Frecuencia)
+head(frecuencia_productos)
+```
+## Histograma de los productos más vendidos.
+
+```{r histograma3,echo=FALSE}
+TOP_PRODUCTOS <- frecuencia_productos$Descripcion[1:5]
+TOP_FREQ_PRODUCTOS <- frecuencia_productos$Frecuencia[1:5]
+
+barplot(TOP_FREQ_PRODUCTOS,
+        main = "Histograma de Frequencia de Productos",
+        xlab = "Descripcion",
+        ylab = "Frequencia",
+        names.arg = TOP_PRODUCTOS,
+        col = "lightblue",
+        border = "black", cex.names = 0.45, )
+```
+
+## Frecuencia de las veces que se solicita un producto.
+Distribución de la frecuencia de venta de los diferentes productos únicos
+```{r frecuencia2, echo=F}
+frecuencia_de_frecuencias <- frecuencia_productos %>%
+  group_by(Frecuencia) %>%
+  summarise(Cantidad_Productos = n()) %>%
+  arrange(Frecuencia)
+
+frecuencia_de_frecuencias <- 
+as.data.frame(frecuencia_de_frecuencias)
+frecuencia_de_frecuencias$Porcentaje <- 
+  (as.numeric(frecuencia_de_frecuencias$Cantidad_Productos)) / PRODUCTOS_unicos$PRODUCTOS_unicos 
+
+ff <- frecuencia_de_frecuencias %>%
+  mutate(Clase = paste0("Clase", Frecuencia))
+ff$Clase <- factor(ff$Clase, levels = paste0("Clase",
+                                             sort(unique(frecuencia_de_frecuencias$Frecuencia))))
+colnames(ff) <- c("Solicitados", "Cantidad", "Porcentaje", "Clase")
+ff
+
+```
+
+```{r datos}
+
+datos_compras <- data.frame(
+ Solicitados_Clase = ff$Solicitados,
+ Cantidad = ff$Cantidad,
+  Porcentaje = ff$Porcentaje)
+datos_compras
+```
+
+
+
+```{r grafico}
+
+grafico_frecuencia_con_etiquetas <- ggplot(datos_compras, aes(x = Solicitados_Clase, 
+                                                              y = Cantidad)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = Solicitados_Clase), vjust = -0.5, size = 2) + 
+  labs(title = "Solicitados_Clase ~ Cantidad",
+       x = "Solicitados_Clase",
+       y = "Cantidad") +
+  theme_minimal()
+print(grafico_frecuencia_con_etiquetas)
+```
+
+```{r grafico2}
+grafico_porcentaje <- ggplot(datos_compras, aes(x = Cantidad, y = Porcentaje)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = Cantidad), vjust = -0.95, size = 2) +
+  labs(title = "Porcentaje ~ Cantidad",
+       x = "Cantidad",
+       y = "Porcentaje") +
+  theme_minimal()
+print(grafico_porcentaje)
+```
+
+```{r grafico3}
+grafico_porcentaje2 <- ggplot(datos_compras, aes(x = Solicitados_Clase, y = Porcentaje)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = Solicitados_Clase), vjust = -0.5, size = 2) +
+  labs(title = "Porcentaje ~ Solicitados_Clase ",
+       x = "Solicitados_Clase",
+       y = "Porcentaje") +
+  theme_minimal()
+print(grafico_porcentaje2)
+
+```
+
+
+```{r barra circulo, echo=FALSE,message=FALSE, warning=FALSE}
+ff$ymax = cumsum(ff$Porcentaje)
+ff$ymin = c(0, head(ff$ymax, n = -1))
+ff$medio = (ff$ymin + ff$ymax) / 2
+```
+
+
+```{r ggplot 2, echo=FALSE,message=FALSE, warning=FALSE}
+set.seed(123) 
+num_colores <- nlevels(ff$Clase)
+paleta_arcoiris <- rainbow(num_colores)
+paleta_aleatoria <- sample(paleta_arcoiris)
+
+ggplot(ff, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = Clase)) +
+     geom_rect() +
+     coord_polar(theta = "y") + 
+     xlim(c(2, 4)) +
+geom_text(aes(x = 3.5, y = medio, label = Cantidad),
+            size = 2, color = "black") +
+   scale_fill_manual(values = paleta_aleatoria)
+ 
+theme_void() 
+
+```
+
+
+## Frecuencia de los productos más vendidos por empresa.
+
+```{r frecuencia3, echo=FALSE}
+frecuencia_productos_empresa <- itens.de.interes %>%
+  group_by(Descripcion, RFC) %>%
+  summarise(Frecuencia = n(), .groups = "keep") %>%
+  arrange(desc(Frecuencia))
+sum(frecuencia_productos_empresa$Frecuencia)
+# [1] 1995
+frecuencia_productos_empresa$Frecuencia_relativa <- (frecuencia_productos_empresa$Frecuencia) / sum(frecuencia_productos_empresa$Frecuencia)
+head(frecuencia_productos_empresa)
+
+
+```
+
+```{r ggplot3, echo=FALSE}
+top_10 <- head(frecuencia_productos_empresa, 10)
+
+top_10 <- top_10 %>%
+  mutate(Proporcion = Frecuencia_relativa)
+
+ggplot(top_10, aes(x = "", y = Proporcion, fill = Descripcion)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  labs(title = "Proporción de Productos por Empresa (Top 10)",
+       fill = "Descripción del Producto") +
+  theme_void() + # Elimina elementos innecesarios del tema
+  geom_text(aes(label = scales::percent(Proporcion)), position = position_stack(vjust = 0.5))
+```
+
+```{r ggplot4, echo=FALSE}
+ggplot(top_10, aes(x = Frecuencia, y = reorder(Descripcion, Frecuencia))) +
+  geom_point(size = 3, color = "steelblue") +
+  labs(title = "Frecuencia de Productos por Empresa (Top 10)",
+       x = "Frecuencia",
+       y = "Descripción del Producto") +
+  theme_minimal()
+```
+
+
+
+
+# Conclusiones
+La empresa "VEPS740807T84" es la más frecuente en compras pero además compra el 
+producto que más se vende "Algicin marca Spin en presentación de garrafa de 20 Litros", 
+aunque realiza compras de otros productos. La mayoría de las compras se realizan 
+una sola vez, 63.12%, lo que indica que no depende de pocos compradores, 
+lo cual es bueno, pues esta diversificado el conjunto de empresas que compran, 
+sin embargo, se debe analizar las causas  y así mantener un portafolio más amplio 
+de compradores para incrementar las ventas.
+
